@@ -1,6 +1,6 @@
 # GridShield
 
-GridShield was previously named PrivGrid-Agent. Some internal identifiers and documentation retain the earlier name.
+GridShield原名PrivGrid-Agent，部分内部标识和文档仍保留旧名称。
 
 > 数据库部署说明：本地演示使用 SQLite 保存控制平面元数据，园区原始能源数据保持为只读 Parquet；可选生产 PostgreSQL 配置、并发边界和未实现能力见 [docs/production-database.md](docs/production-database.md)。
 
