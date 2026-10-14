@@ -1,0 +1,50 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+import { installLocalization, languageControl, setLanguage, translate } from '../src/i18n/index.js';
+
+test('language switch preserves form values, selected scope, handlers, and private text', async () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
+  globalThis.document = dom.window.document;
+  globalThis.localStorage = dom.window.localStorage;
+  setLanguage('zh-CN');
+  document.body.innerHTML = `${languageControl()}<h1>新建申请</h1><input placeholder="请输入您的问题" value="园区负荷查询"><select><option value="SUM">求和 SUM</option></select><button id="submit">提交</button><span data-i18n-ignore>我的申请用途：园区负荷查询</span><p class="agent-typewriter">模型生成中文解释</p><textarea>用户输入中文</textarea>`;
+  const input = document.querySelector('input');
+  input.value = '未保存的中文输入';
+  let clicks = 0;
+  document.querySelector('#submit').addEventListener('click', () => clicks++);
+  const api = installLocalization();
+  document.querySelector('[data-ui-language="en"]').click();
+  assert.equal(document.querySelector('h1').textContent, 'New Request');
+  assert.equal(document.documentElement.lang, 'en');
+  assert.equal(localStorage.getItem('privgrid.language'), 'en');
+  assert.equal(input.value, '未保存的中文输入');
+  assert.equal(input.placeholder, 'Enter your question');
+  assert.equal(document.querySelector('select').value, 'SUM');
+  assert.equal(document.querySelector('[data-i18n-ignore]').textContent, '我的申请用途：园区负荷查询');
+  assert.equal(document.querySelector('.agent-typewriter').textContent, '模型生成中文解释');
+  document.querySelector('#submit').click();
+  assert.equal(clicks, 1);
+  const newLabel = document.createElement('strong');
+  newLabel.textContent = '已完成';
+  document.body.append(newLabel);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(newLabel.textContent, 'Completed');
+  document.querySelector('[data-ui-language="zh-CN"]').click();
+  assert.equal(document.querySelector('h1').textContent, '新建申请');
+  assert.equal(input.placeholder, '请输入您的问题');
+  assert.equal(input.value, '未保存的中文输入');
+  assert.equal(newLabel.textContent, '已完成');
+  api.dispose();
+  dom.window.close();
+});
+
+test('UI glossary leaves identifiers and numeric results intact', () => {
+  assert.equal(translate('G1 + G2 = 18.25 kWh; ORG_A; task-123', 'en'), 'G1 + G2 = 18.25 kWh; ORG_A; task-123');
+  assert.equal(translate('分布式差分隐私', 'en'), 'Distributed DP');
+  assert.equal(translate('隐私预算 ε', 'en'), 'Privacy Budget ε');
+  assert.equal(translate('峰值负荷 (kWh)', 'en'), 'Peak Load (kWh)');
+  assert.equal(translate('谷值负荷 (kWh)', 'en'), 'Valley Load (kWh)');
+  assert.equal(translate('峰值时间', 'en'), 'Peak Time');
+  assert.equal(translate('1小时', 'en'), '1 Hour');
+});
