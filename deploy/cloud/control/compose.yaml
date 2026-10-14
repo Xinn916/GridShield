@@ -1,0 +1,62 @@
+name: privgrid-cloud-control
+
+services:
+  control-plane:
+    image: privgrid-backend:v4
+    pull_policy: never
+    container_name: privgrid-control
+    restart: unless-stopped
+    command: ["uvicorn", "control_plane.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: sqlite:////app/data/control_plane.db
+      PARTY_A_URL: http://192.168.1.58:8101
+      PARTY_B_URL: http://192.168.1.175:8102
+      PARTY_C_URL: http://192.168.1.183:8103
+      COMPUTE_S1_URL: http://192.168.1.9:8201
+      COMPUTE_S2_URL: http://192.168.1.229:8202
+      FRONTEND_GATEWAY_URL: http://frontend
+      CALCULATION_MODE: DISTRIBUTED_DP
+      DEFAULT_TOTAL_EPSILON: "20"
+      AUTHORIZATION_ENFORCEMENT_ENABLED: "true"
+      DEMO_SEED_ENABLED: "true"
+      SESSION_TTL_SECONDS: "28800"
+      SESSION_COOKIE_NAME: privgrid_session
+      SESSION_COOKIE_SECURE: "true"
+      CSV_IMPORT_ENABLED: "true"
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    volumes:
+      - privgrid-control-data:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    image: privgrid-frontend:v5
+    pull_policy: never
+    container_name: privgrid-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+volumes:
+  privgrid-control-data:
+    name: privgrid-control-data

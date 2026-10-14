@@ -1,0 +1,35 @@
+name: privgrid-cloud-party-c
+
+services:
+  party-c:
+    image: privgrid-backend:v4
+    pull_policy: never
+    container_name: privgrid-party-c
+    restart: unless-stopped
+    command: ["uvicorn", "party_node.main:app", "--host", "0.0.0.0", "--port", "8103"]
+    env_file:
+      - .env
+    environment:
+      PARTY_ID: ORG_C
+      PARQUET_PATH: /app/data/party_c.parquet
+      BENCHMARK_DATA_PATH: /app/benchmark/party_c_benchmark.parquet
+      COMPUTE_S1_URL: http://192.168.1.9:8201
+      COMPUTE_S2_URL: http://192.168.1.229:8202
+      CSV_IMPORT_ENABLED: "true"
+      IMPORT_STORAGE_DIR: /app/imported
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      CSV_IMPORT_ALLOWED_ENCODINGS: utf-8,utf-8-sig
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    volumes:
+      - /opt/privgrid/data/party_c.parquet:/app/data/party_c.parquet:ro
+      - /opt/privgrid/benchmark/party_c_benchmark.parquet:/app/benchmark/party_c_benchmark.parquet:ro
+      - /opt/privgrid/imported:/app/imported
+    ports:
+      - "192.168.1.183:8103:8103"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8103/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

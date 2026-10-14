@@ -1,0 +1,198 @@
+# 生产/更安全配置：不向宿主机发布 party 与 compute 端口（仅 8080 与 8000）。
+# 用法：docker compose -f compose.prod.yaml up -d
+name: privgrid-prod
+
+x-backend: &backend
+  image: privgrid-backend:v4
+  pull_policy: never
+  restart: unless-stopped
+  networks:
+    - privgrid-net
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: privgrid-postgres
+    restart: unless-stopped
+    networks:
+      - privgrid-net
+    environment:
+      POSTGRES_DB: privgrid
+      POSTGRES_USER: privgrid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - privgrid-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U privgrid -d privgrid"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  control-plane:
+    <<: *backend
+    container_name: privgrid-control
+    command: ["uvicorn", "control_plane.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://privgrid:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/privgrid
+      PARTY_A_URL: http://party-a:8101
+      PARTY_B_URL: http://party-b:8102
+      PARTY_C_URL: http://party-c:8103
+      COMPUTE_S1_URL: http://compute-s1:8201
+      COMPUTE_S2_URL: http://compute-s2:8202
+      FRONTEND_GATEWAY_URL: http://frontend
+      CALCULATION_MODE: DISTRIBUTED_DP
+      DEFAULT_TOTAL_EPSILON: "20"
+      CSV_IMPORT_ENABLED: "true"
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    env_file:
+      - .env.docker
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres: { condition: service_healthy }
+      party-a: { condition: service_healthy }
+      party-b: { condition: service_healthy }
+      party-c: { condition: service_healthy }
+      compute-s1: { condition: service_healthy }
+      compute-s2: { condition: service_healthy }
+
+  party-a:
+    <<: *backend
+    container_name: privgrid-party-a
+    command: ["uvicorn", "party_node.main:app", "--host", "0.0.0.0", "--port", "8101"]
+    environment:
+      PARTY_ID: ORG_A
+      PARQUET_PATH: /app/data/party_a.parquet
+      COMPUTE_S1_URL: http://compute-s1:8201
+      COMPUTE_S2_URL: http://compute-s2:8202
+      CSV_IMPORT_ENABLED: "true"
+      IMPORT_STORAGE_DIR: /app/imported
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    volumes:
+      - ./data_processed/party_a.parquet:/app/data/party_a.parquet:ro
+      - privgrid-party-a-imports:/app/imported
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8101/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  party-b:
+    <<: *backend
+    container_name: privgrid-party-b
+    command: ["uvicorn", "party_node.main:app", "--host", "0.0.0.0", "--port", "8102"]
+    environment:
+      PARTY_ID: ORG_B
+      PARQUET_PATH: /app/data/party_b.parquet
+      COMPUTE_S1_URL: http://compute-s1:8201
+      COMPUTE_S2_URL: http://compute-s2:8202
+      CSV_IMPORT_ENABLED: "true"
+      IMPORT_STORAGE_DIR: /app/imported
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    volumes:
+      - ./data_processed/party_b.parquet:/app/data/party_b.parquet:ro
+      - privgrid-party-b-imports:/app/imported
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8102/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  party-c:
+    <<: *backend
+    container_name: privgrid-party-c
+    command: ["uvicorn", "party_node.main:app", "--host", "0.0.0.0", "--port", "8103"]
+    environment:
+      PARTY_ID: ORG_C
+      PARQUET_PATH: /app/data/party_c.parquet
+      COMPUTE_S1_URL: http://compute-s1:8201
+      COMPUTE_S2_URL: http://compute-s2:8202
+      CSV_IMPORT_ENABLED: "true"
+      IMPORT_STORAGE_DIR: /app/imported
+      CSV_IMPORT_MAX_BYTES: "52428800"
+      CSV_IMPORT_MAX_ROWS: "500000"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    volumes:
+      - ./data_processed/party_c.parquet:/app/data/party_c.parquet:ro
+      - privgrid-party-c-imports:/app/imported
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8103/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  compute-s1:
+    <<: *backend
+    container_name: privgrid-compute-s1
+    command: ["uvicorn", "compute_node.main:app", "--host", "0.0.0.0", "--port", "8201"]
+    environment:
+      COMPUTE_NODE_ID: S1
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8201/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  compute-s2:
+    <<: *backend
+    container_name: privgrid-compute-s2
+    command: ["uvicorn", "compute_node.main:app", "--host", "0.0.0.0", "--port", "8202"]
+    environment:
+      COMPUTE_NODE_ID: S2
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8202/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    image: privgrid-frontend:v5
+    pull_policy: never
+    container_name: privgrid-frontend
+    restart: unless-stopped
+    networks:
+      - privgrid-net
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+volumes:
+  privgrid-postgres-data:
+    name: privgrid-postgres-data
+  privgrid-party-a-imports:
+    name: privgrid-party-a-imports
+  privgrid-party-b-imports:
+    name: privgrid-party-b-imports
+  privgrid-party-c-imports:
+    name: privgrid-party-c-imports
+
+networks:
+  privgrid-net:
+    name: privgrid-net

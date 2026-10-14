@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-07-31T03:51:52.553228+00:00",
+  "generated_from": "existing_parquet_files",
+  "schema": [
+    "household_id",
+    "organization_id",
+    "timestamp",
+    "energy_kwh"
+  ],
+  "parties": {
+    "ORG_A": {
+      "file": "D:\\Program\\ChallengeCup\\data_processed\\party_a.parquet",
+      "household_count": 100,
+      "record_count": 144000,
+      "start_time": "2012-11-11T00:00:00",
+      "end_time": "2012-12-10T23:30:00",
+      "energy_sum": 35212.505000998375,
+      "household_ids_sha256": "c49d60e0156a93173488f39e8930cf1834fca14497215fbf8072b51fa1472cbb"
+    },
+    "ORG_B": {
+      "file": "D:\\Program\\ChallengeCup\\data_processed\\party_b.parquet",
+      "household_count": 100,
+      "record_count": 144000,
+      "start_time": "2012-11-11T00:00:00",
+      "end_time": "2012-12-10T23:30:00",
+      "energy_sum": 33357.60299559983,
+      "household_ids_sha256": "0a702ad4516fae7541a03d3e461c8fe3a2a22b86c7eabc33b95f5fff6d990f00"
+    },
+    "ORG_C": {
+      "file": "D:\\Program\\ChallengeCup\\data_processed\\party_c.parquet",
+      "household_count": 100,
+      "record_count": 144000,
+      "start_time": "2012-11-11T00:00:00",
+      "end_time": "2012-12-10T23:30:00",
+      "energy_sum": 36099.473002899525,
+      "household_ids_sha256": "b1160efe77377f4c1c22c002230605f782f0e48fbfc0190a32c239b5394c57e1"
+    }
+  },
+  "households_mutually_exclusive": true,
+  "global": {
+    "household_count": 300,
+    "record_count": 432000,
+    "start_time": "2012-11-11T00:00:00",
+    "end_time": "2012-12-10T23:30:00",
+    "energy_sum": 104669.58099949773
+  },
+  "continuous_window": {
+    "start_time": "2012-11-11T00:00:00",
+    "end_time_exclusive": "2012-12-11T00:00:00",
+    "last_observation_time": "2012-12-10T23:30:00",
+    "days": 30.0,
+    "interval_minutes": 30.0,
+    "expected_records_per_household": 1440,
+    "minimum_records_per_household": 1440,
+    "maximum_records_per_household": 1440,
+    "is_complete": true
+  },
+  "source_integrity": {
+    "algorithm": "SHA-256",
+    "before": {
+      "ORG_A": "b53005c4eab0ce2681cebf947b7a65f0e49ae64a7cdd96e75239e9d23efee4d4",
+      "ORG_B": "ae3d272afcc19a0385313f384dec217eabf354b9abe65c97b825fa7403f727bc",
+      "ORG_C": "f3b0bfc04f4a57c79309c9a55fe7bca6e95b4bd4ca42832d39f7629b95de731e"
+    },
+    "after": {
+      "ORG_A": "b53005c4eab0ce2681cebf947b7a65f0e49ae64a7cdd96e75239e9d23efee4d4",
+      "ORG_B": "ae3d272afcc19a0385313f384dec217eabf354b9abe65c97b825fa7403f727bc",
+      "ORG_C": "f3b0bfc04f4a57c79309c9a55fe7bca6e95b4bd4ca42832d39f7629b95de731e"
+    },
+    "unchanged": true
+  }
+}
