@@ -1,4 +1,5 @@
 import { mockData } from "./mock.js";
+import { installLocalization, languageControl, translate } from "./i18n/index.js";
 import { USE_MOCK } from "./config.js";
 import {
   QueryController,
@@ -109,7 +110,9 @@ function searchFeatureForQuery(query) {
   const normalized = String(query || "").trim().toLowerCase();
   if (!normalized) return null;
   return currentSearchFeatures().find((feature) =>
-    feature.title.toLowerCase().includes(normalized)
+    translate(feature.title).toLowerCase().includes(normalized)
+    || translate(feature.description).toLowerCase().includes(normalized)
+    || feature.title.toLowerCase().includes(normalized)
     || normalized.includes(feature.title.toLowerCase())
     || feature.description.toLowerCase().includes(normalized)
     || feature.keywords.some((keyword) => normalized.includes(keyword) || keyword.includes(normalized))
@@ -335,6 +338,7 @@ function topbar() {
       <h1>面向能源可信数据空间的多方安全协同与隐私保护平台</h1>
     </div>
     <div class="top-actions">
+      ${languageControl()}
       <div class="search" data-action="open-search">${icon("search")}<span>搜索功能...</span><kbd>/</kbd></div>
       <div class="bell-wrap">
         <div class="bell" data-action="toggle-notify">${icon("bell")}<b>3</b></div>
@@ -1721,6 +1725,7 @@ function updateQueryRuntime() {
   if (privacy) privacy.innerHTML = queryPrivacyHtml(q);
   const plan = document.querySelector("#q-plan");
   if (plan) {
+    plan.toggleAttribute('data-i18n-ignore', Boolean(q.lastPayload));
     plan.textContent = q.lastPayload ? JSON.stringify(q.lastPayload, null, 2) : "提交任务后将在此展示实际请求参数";
   }
   const formError = document.querySelector("#q-form-error");
@@ -1961,7 +1966,7 @@ function queryPage() {
           <div class="query-tab-actions"><button data-action="copy-explain">复制</button><button class="primary" data-action="explain-result">生成智能解读</button></div>
         </div>
         <div class="query-tab-panel" id="q-tab-logs" data-tab-panel="logs" hidden>
-          <div class="code-block" id="q-plan">${escapeHtml(q.lastPayload ? JSON.stringify(q.lastPayload, null, 2) : "提交任务后将在此展示实际请求参数")}</div>
+          <div class="code-block" id="q-plan" ${q.lastPayload ? 'data-i18n-ignore' : ''}>${escapeHtml(q.lastPayload ? JSON.stringify(q.lastPayload, null, 2) : "提交任务后将在此展示实际请求参数")}</div>
           <div class="query-tab-actions"><button data-action="view-logs">查看执行日志</button><button data-action="copy-plan">复制计划</button></div>
         </div>
       </div>
@@ -2075,6 +2080,7 @@ async function restoreSession() {
 
 function loginPage() {
   return `<div class="login-page">
+    <div class="login-language">${languageControl()}</div>
     <div class="login-left">
       <div class="brand"><div class="logo"><span></span><span></span><span></span><span></span></div><h2>PrivGrid-Agent</h2></div>
       <h1>面向能源可信数据空间的<br>多方安全协同与隐私保护平台</h1>
@@ -3432,7 +3438,7 @@ function approvalProgress(request) {
 function myRequestsPage() {
   const rows = state.access.requests.map((request) => [
     escapeHtml(request.request_id),
-    escapeHtml(request.purpose),
+    `<span data-i18n-ignore>${escapeHtml(request.purpose)}</span>`,
     request.requested_parties.join(" / "),
     accessStatusTag(request.status),
     approvalProgress(request),
@@ -3524,7 +3530,7 @@ function approvalDetailPage() {
       ${panel("申请内容", kvRowsHtml([
         { k: "申请编号", v: escapeHtml(content.requestId) },
         { k: "申请人", v: escapeHtml(content.requesterUserId) },
-        { k: "使用目的", v: escapeHtml(content.purpose) },
+        { k: "使用目的", v: `<span data-i18n-ignore>${escapeHtml(content.purpose)}</span>` },
         { k: "申请园区", v: escapeHtml(content.requestedParties) },
         { k: "查询类型", v: escapeHtml(content.requestedQueryTypes) },
         { k: "开始时间", v: escapeHtml(fmtDateTime(content.requestedStartTime)) },
@@ -3535,7 +3541,7 @@ function approvalDetailPage() {
         { k: "申请到期时间", v: escapeHtml(fmtDateTime(content.requestedExpiresAt)) },
         { k: "当前申请状态", v: accessStatusTag(content.status) },
       ]))}
-      ${panel("审批决定", decided ? `<div class="api-state">该审批已完成：${accessStatusTag(approval.decision)}<br>${escapeHtml(approval.reason || "无附加说明")}</div>` : `<div class="form2" style="grid-template-columns:1fr">
+      ${panel("审批决定", decided ? `<div class="api-state">该审批已完成：${accessStatusTag(approval.decision)}<br><span ${approval.reason ? 'data-i18n-ignore' : ''}>${escapeHtml(approval.reason || "无附加说明")}</span></div>` : `<div class="form2" style="grid-template-columns:1fr">
         <label><span class="k">决定</span><select id="approval-decision"><option value="APPROVED">批准</option><option value="CONDITIONALLY_APPROVED">附条件批准</option><option value="REJECTED">拒绝</option></select></label>
         <div class="approval-types-field"><span class="k">允许查询类型</span>${approvalQueryTypesControl(request.requested_query_types)}</div>
         <label><span class="k">允许开始时间</span><input id="approval-start" type="datetime-local" value="${toDateTimeLocal(request.requested_start_time)}"></label>
@@ -3568,7 +3574,7 @@ function auditRequestsPage(kind = "request") {
     request.requester_user_id,
     request.requested_parties.join(" / "),
     accessStatusTag(request.status),
-    kind === "approval" ? approvalProgress(request) : escapeHtml(request.purpose),
+    kind === "approval" ? approvalProgress(request) : `<span data-i18n-ignore>${escapeHtml(request.purpose)}</span>`,
     fmtDateTime(request.created_at),
   ]);
   return accessPage(kind === "approval" ? "审批审计" : state.user?.role === "ADMIN" ? "全部申请" : "申请审计", "", panel("申请记录", rows.length ? table(["申请编号", "申请人", "园区", "状态", kind === "approval" ? "审批进度" : "用途", "创建时间"], rows) : `<div class="api-state">暂无申请记录</div>`));
@@ -3629,7 +3635,7 @@ function adminUsersPage() {
 function securityAuditPage() {
   const rows = state.access.securityAudit.map((item) => [
     fmtDateTime(item.timestamp), item.event_type, item.actor_user_id || "--", item.actor_role || "--",
-    item.target_user_id || "--", item.operation || "--", item.party_id || "--", item.request_id || item.grant_id || item.task_id || "--", item.decision || "--", escapeHtml(item.reason || "--"),
+    item.target_user_id || "--", item.operation || "--", item.party_id || "--", item.request_id || item.grant_id || item.task_id || "--", item.decision || "--", `<span data-i18n-ignore>${escapeHtml(item.reason || "--")}</span>`,
   ]);
   return accessPage("安全审计", "", panel("安全事件", rows.length ? table(["时间", "事件", "操作者", "角色", "目标账号", "操作", "园区", "关联对象", "决定", "原因"], rows) : `<div class="api-state">暂无安全审计事件</div>`));
 }
@@ -4596,5 +4602,6 @@ globalThis.window?.addEventListener("beforeunload", () => {
   speechInput.cancel({ abort: true, discardInterim: true });
 });
 
+installLocalization();
 render();
 void restoreSession();
