@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>分布式差分隐私后端验证台</title>
+  <link rel="stylesheet" href="/verify/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">ENERGY TRUSTED DATA SPACE</p>
+      <h1>分布式差分隐私后端验证台</h1>
+      <div class="header-meta">
+        <span id="current-time">--</span>
+        <span id="backend-address">--</span>
+      </div>
+    </div>
+    <button id="refresh-all" class="primary" type="button">刷新全部状态</button>
+  </header>
+
+  <main class="page-shell">
+    <div id="global-message" class="message" role="status" aria-live="polite" hidden></div>
+
+    <section class="budget-band" aria-labelledby="budget-title">
+      <div>
+        <p class="section-label">隐私预算</p>
+        <h2 id="budget-title">剩余 <span id="remaining-epsilon">--</span> ε</h2>
+        <p>成功执行 DISTRIBUTED_DP 查询会消耗隐私预算。</p>
+      </div>
+      <dl class="budget-metrics">
+        <div><dt>主体</dt><dd id="budget-subject">--</dd></div>
+        <div><dt>范围</dt><dd id="budget-scope">--</dd></div>
+        <div><dt>总预算</dt><dd id="budget-total">--</dd></div>
+        <div><dt>已使用</dt><dd id="budget-used">--</dd></div>
+        <div><dt>预留中</dt><dd id="budget-reserved">--</dd></div>
+        <div><dt>更新时间</dt><dd id="budget-updated">--</dd></div>
+      </dl>
+      <button id="refresh-budget" type="button">刷新预算</button>
+    </section>
+
+    <section class="panel" aria-labelledby="health-title">
+      <div class="section-head">
+        <div><p class="section-label">SYSTEM STATUS</p><h2 id="health-title">服务健康检查</h2></div>
+        <button id="check-services" type="button">检查所有服务</button>
+      </div>
+      <div id="health-grid" class="health-grid" aria-live="polite"></div>
+    </section>
+
+    <div class="two-column">
+      <section class="panel" aria-labelledby="query-title">
+        <div class="section-head"><div><p class="section-label">QUERY</p><h2 id="query-title">隐私查询</h2></div></div>
+        <form id="query-form" class="form-grid">
+          <label>查询类型
+            <select id="query-type">
+              <option value="SUM">SUM</option>
+              <option value="COUNT">COUNT</option>
+              <option value="AVERAGE">AVERAGE</option>
+              <option value="TIME_SERIES">TIME_SERIES</option>
+            </select>
+          </label>
+          <fieldset class="party-field">
+            <legend>参与园区</legend>
+            <label><input type="checkbox" name="party" value="ORG_A" checked> ORG_A</label>
+            <label><input type="checkbox" name="party" value="ORG_B" checked> ORG_B</label>
+            <label><input type="checkbox" name="party" value="ORG_C" checked> ORG_C</label>
+          </fieldset>
+          <label>开始时间<input id="start-time" type="datetime-local" value="2012-11-11T00:00"></label>
+          <label>结束时间<input id="end-time" type="datetime-local" value="2012-11-12T00:00"></label>
+          <label>epsilon<input id="epsilon" type="number" value="1.0" min="0.1" max="5" step="0.1"></label>
+          <label>group_by
+            <select id="group-by" disabled>
+              <option value="">不分组</option>
+              <option value="30m">30m</option>
+              <option value="1h">1h</option>
+              <option value="1d">1d</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button id="submit-query" class="primary" type="submit">提交隐私查询</button>
+            <span id="query-loading" class="loading" hidden>正在执行...</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="task-title">
+        <div class="section-head">
+          <div><p class="section-label">TASK</p><h2 id="task-title">任务状态</h2></div>
+          <button id="stop-polling" type="button" disabled>停止轮询</button>
+        </div>
+        <div class="progress-track"><div id="task-progress" class="progress-bar"></div></div>
+        <dl id="task-details" class="detail-list"></dl>
+      </section>
+    </div>
+
+    <section class="panel result-panel" aria-labelledby="result-title">
+      <div class="section-head"><div><p class="section-label">PRIVATE RESULT</p><h2 id="result-title">带噪查询结果</h2></div></div>
+      <div id="result-value" class="result-value">尚无结果</div>
+      <dl id="result-details" class="detail-list compact"></dl>
+      <div id="time-series-output" class="series-output" hidden>
+        <svg id="series-chart" viewBox="0 0 960 280" role="img" aria-label="带噪负荷曲线">
+          <line x1="56" y1="16" x2="56" y2="244" class="chart-axis"></line>
+          <line x1="56" y1="244" x2="944" y2="244" class="chart-axis"></line>
+          <polyline id="series-line" class="chart-line" points=""></polyline>
+        </svg>
+        <dl id="series-metrics" class="detail-list compact"></dl>
+        <div class="table-wrap"><table><thead><tr><th>timestamp</th><th>noisy value (kWh)</th></tr></thead><tbody id="series-body"></tbody></table></div>
+      </div>
+    </section>
+
+    <div class="two-column experiments">
+      <section class="panel" aria-labelledby="repeat-title">
+        <div class="section-head"><div><p class="section-label">RANDOMNESS</p><h2 id="repeat-title">随机性验证</h2></div><button id="clear-repeat" type="button">清空实验结果</button></div>
+        <div class="inline-form">
+          <label>查询类型<select id="repeat-type"><option>SUM</option><option>COUNT</option><option>AVERAGE</option></select></label>
+          <label>epsilon<input id="repeat-epsilon" type="number" value="1.0" min="0.1" max="5" step="0.1"></label>
+          <label>重复次数<input id="repeat-count" type="number" value="5" min="2" max="10" step="1"></label>
+          <button id="run-repeat" class="primary" type="button">运行重复实验</button>
+        </div>
+        <p id="repeat-cost" class="cost-line">预计消耗：5.0 ε</p>
+        <div class="table-wrap"><table><thead><tr><th>序号</th><th>task_id</th><th>epsilon</th><th>结果</th><th>耗时</th><th>状态</th></tr></thead><tbody id="repeat-body"></tbody></table></div>
+        <dl id="repeat-stats" class="stats-row"></dl>
+      </section>
+
+      <section class="panel" aria-labelledby="epsilon-title">
+        <div class="section-head"><div><p class="section-label">EPSILON</p><h2 id="epsilon-title">epsilon 对比测试</h2></div></div>
+        <p class="cost-line">固定 epsilon 0.5 / 1.0 / 2.0 / 4.0，各运行 2 次，预计消耗 15.0 ε。</p>
+        <button id="run-epsilon" class="primary" type="button">运行 epsilon 对比</button>
+        <div class="table-wrap"><table><thead><tr><th>epsilon</th><th>第一次</th><th>第二次</th><th>差值</th><th>平均耗时</th></tr></thead><tbody id="epsilon-body"></tbody></table></div>
+        <p class="note">单次随机结果不能证明 epsilon 越大误差一定越小，应结合后端 compare_modes.py 的大量重复实验判断。</p>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="invalid-title">
+      <div class="section-head"><div><p class="section-label">VALIDATION</p><h2 id="invalid-title">非法参数验证</h2></div></div>
+      <div class="button-row">
+        <button class="invalid-test" data-test="epsilon-zero" type="button">epsilon = 0</button>
+        <button class="invalid-test" data-test="epsilon-high" type="button">epsilon = 6</button>
+        <button class="invalid-test" data-test="no-parties" type="button">不选择园区</button>
+        <button class="invalid-test" data-test="bad-time" type="button">结束时间早于开始时间</button>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>测试</th><th>HTTP</th><th>错误信息</th><th>预算前</th><th>预算后</th></tr></thead><tbody id="invalid-body"></tbody></table></div>
+    </section>
+
+    <div class="two-column">
+      <section class="panel" aria-labelledby="recent-title">
+        <div class="section-head"><div><p class="section-label">HISTORY</p><h2 id="recent-title">最近任务</h2></div><button id="refresh-tasks" type="button">刷新任务</button></div>
+        <div class="table-wrap"><table><thead><tr><th>task_id</th><th>类型</th><th>状态</th><th>模式</th><th>epsilon</th><th>敏感度</th><th>创建时间</th><th>耗时</th></tr></thead><tbody id="recent-body"></tbody></table></div>
+      </section>
+      <section class="panel" aria-labelledby="audit-title">
+        <div class="section-head"><div><p class="section-label">AUDIT</p><h2 id="audit-title">审计摘要</h2></div></div>
+        <dl id="audit-details" class="detail-list"></dl>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="confirm-dialog">
+    <form method="dialog">
+      <h2>确认隐私查询</h2>
+      <dl id="confirm-details" class="detail-list"></dl>
+      <div class="dialog-actions"><button value="cancel">取消</button><button id="confirm-submit" class="primary" value="confirm">确认提交</button></div>
+    </form>
+  </dialog>
+
+  <script src="/verify/assets/app.js" defer></script>
+</body>
+</html>
